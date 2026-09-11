@@ -4,7 +4,7 @@ from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Digits, Static
 
-from smassh.src.parser import data_parser
+from smassh.src.parser import data_parser, config_parser
 
 
 class ValueLabel(Widget):
@@ -84,11 +84,15 @@ class ValueContainer(Static):
         self.accuracy = Value()
 
     def update_stats(self, stats) -> None:
+        mode = config_parser.get("mode")
+        count = config_parser.get(f"{mode}_count")
+        history = data_parser.history()
+
         wpm_label = self.query_one("#wpm_label", expect_type=ValueLabel)
-        wpm_label.set_best(data_parser.is_highest_wpm(stats.wpm))
+        wpm_label.set_best(history.is_personal_best_wpm(stats.wpm, mode, count))
 
         acc_label = self.query_one("#acc_label", expect_type=ValueLabel)
-        acc_label.set_best(data_parser.is_highest_accuracy(stats.accuracy))
+        acc_label.set_best(history.is_personal_best_accuracy(stats.accuracy, mode, count))
 
         self.wpm.update(str(stats.wpm))
         self.accuracy.update(str(stats.accuracy))
