@@ -79,6 +79,9 @@ class TypingSpace(Widget):
         if key == "ctrl+s":
             return self.screen.post_message(SetScreen("settings"))
 
+        if key == "ctrl+o":
+            return self.screen.post_message(SetScreen("highscore"))
+
         if key == "ctrl+l":
             return self.app.push_screen("language")
 

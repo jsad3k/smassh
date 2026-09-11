@@ -2,6 +2,7 @@ import webbrowser
 from textual import on
 from textual.app import App, ComposeResult, events
 from textual.screen import Screen
+from textual.widget import Widget
 from textual.widgets import ContentSwitcher
 from smassh.ui.events import SetScreen, ShowResults
 from smassh.ui.widgets import *  # noqa
@@ -17,6 +18,16 @@ class MainScreen(Screen):
     """
     Main Screen which renders all the first visible option when app starts
     """
+
+    AUTO_FOCUS = ""
+
+    def set_focus(
+        self,
+        widget: Widget | None,
+        scroll_visible: bool = True,
+        from_app_focus: bool = False,
+    ) -> None:
+        """Refuse focus; see the class comment on AUTO_FOCUS above."""
 
     DEFAULT_CSS = """
     MainScreen {
@@ -34,6 +45,7 @@ class MainScreen(Screen):
             SettingsScreen(id="settings"),
             HelpScreen(id="help"),
             ResultScreen(id="result"),
+            HighscoreScreen(id="highscore"),
             # initial screen
             initial="typing",
         )

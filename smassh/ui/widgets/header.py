@@ -1,4 +1,5 @@
 import os
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.widget import Widget
@@ -86,5 +87,6 @@ class Header(Widget):
             yield NavItem(" settings", "settings")
             yield NavItem("󰋗 help", "help")
             yield NavItem(" about", "about")
+            yield NavItem(" scores", "highscore")
 
         # yield NavItem("  " + get_username())

@@ -238,3 +238,65 @@ Star {
   link-style: underline;
   link-style-hover: underline italic;
 }
+
+CarouselPager {
+  background: $bg-color;
+  color: $sub-color;
+}
+
+HighscorePane #heatmap_section {
+  background: $bg-color;
+}
+
+YearHeatmap > .year-heatmap--label { color: $sub-color; }
+YearHeatmap > .year-heatmap--bound  { background: $bg-color; color: $bg-color; }
+YearHeatmap > .year-heatmap--l0 { color: $sub-color 40%; }
+YearHeatmap > .year-heatmap--l1 { color: $main-color 12%; }
+YearHeatmap > .year-heatmap--l2 { color: $main-color 25%; }
+YearHeatmap > .year-heatmap--l3 { color: $main-color 38%; }
+YearHeatmap > .year-heatmap--l4 { color: $main-color 50%; }
+YearHeatmap > .year-heatmap--l5 { color: $main-color 63%; }
+YearHeatmap > .year-heatmap--l6 { color: $main-color 75%; }
+YearHeatmap > .year-heatmap--l7 { color: $main-color 88%; }
+YearHeatmap > .year-heatmap--l8 { color: $main-color; }
+
+SummaryCard {
+  border: round $main-color;
+}
+
+SummaryCard Digits {
+  color: $main-color;
+}
+
+BestCard {
+  border: round $main-color;
+}
+
+BestCard .stat-label {
+  color: $sub-color;
+}
+
+BestCard .date-label {
+  color: $sub-color;
+}
+
+BestCard.today {
+  border: round $text-color;
+  border-title-color: $text-color;
+}
+
+BestCard Digits {
+  color: $main-color;
+}
+
+BestCard.empty {
+  border: round $sub-color;
+}
+
+BestCard.empty .stat-label {
+  color: $sub-color;
+}
+
+BestCard.empty Digits {
+  color: $sub-color;
+}

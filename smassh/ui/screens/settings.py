@@ -109,11 +109,12 @@ class SettingsScreen(BaseWindow):
 
         self.refresh()
 
-    async def handle_key(self, event: events.Key) -> None:
+    async def handle_key(self, event: events.Key) -> bool:
         key = event.key
         n = len(self.settings)
 
-        await super().handle_key(event)
+        if await super().handle_key(event):
+            return True
 
         if key in ["down", "j"]:
             if self.current_option < n - 1:
@@ -130,3 +131,5 @@ class SettingsScreen(BaseWindow):
 
         elif key == "shift+tab":
             self.current_setting.select_prev()
+
+        return True

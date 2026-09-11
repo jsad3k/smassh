@@ -1,6 +1,7 @@
 GENERAL_KEYBINDS = [
     ("ctrl+q", "Quit App"),
     ("ctrl+s", "Open Settings"),
+    ("ctrl+o", "Open Scores"),
 ]
 
 TYPING_KEYBINDS = [
