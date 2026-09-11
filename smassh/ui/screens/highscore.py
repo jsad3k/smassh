@@ -1,18 +1,30 @@
 from datetime import date, datetime, timedelta
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Set, Tuple
 from rich.text import Text
+from textual import on
 from textual.app import ComposeResult, events
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import Digits, Label, Static
-from smassh.src.parser import data_parser
+from textual.widgets import Digits, Label, ListItem, ListView, Static
+from smassh.src.parser import data_parser, TestRecord
 from smassh.ui.widgets import BaseWindow, Carousel, CarouselPane
 
 MODE_ICON = {"words": "󰯬", "time": "󰥔"}
+_MODIFIER_ICON = {"numbers": "󰲰", "punctuation": "󰸥"}
+_CROWN_ICON = ""  # nf-fa-crown
 
 
 def is_today(day: date) -> bool:
     return day == datetime.now().date()
+
+
+def _day_label(day: date) -> str:
+    if is_today(day):
+        return "Today"
+    if day == datetime.now().date() - timedelta(days=1):
+        return "Yesterday"
+    return day.strftime("%Y-%m-%d")
 
 
 def _format_duration(seconds: float) -> str:
@@ -374,13 +386,301 @@ class HighscorePane(CarouselPane):
             await row.mount(*cards)
 
 
-class HighscoreScreen(BaseWindow):
+class _NavLeft(Static):
+    def on_click(self) -> None:
+        self.parent.prev_day()  # type: ignore[union-attr]
+
+
+class _NavRight(Static):
+    def on_click(self) -> None:
+        self.parent.next_day()  # type: ignore[union-attr]
+
+
+class DayNavigator(Widget):
     """
-    Screen hosting a Carousel showing the highscore overview.
+    Shows the currently viewed day with clickable ← / → to change days.
+    """
+
+    class DayChanged(Message):
+        """Posted when the navigator moves to a different day."""
+
+    DEFAULT_CSS = """
+    DayNavigator {
+        height: 3;
+        width: 1fr;
+        layout: horizontal;
+        align: center middle;
+    }
+
+    DayNavigator .nav-arrow {
+        width: 3;
+        height: 1;
+        content-align: center middle;
+    }
+
+    DayNavigator .nav-center {
+        width: 1fr;
+        height: 1;
+        content-align: center middle;
+    }
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._days: List[date] = []
+        self._index: int = 0
+
+    def compose(self) -> ComposeResult:
+        yield _NavLeft("←", classes="nav-arrow")
+        yield Static("", classes="nav-center", id="nav-label")
+        yield _NavRight("→", classes="nav-arrow")
+
+    def on_mount(self) -> None:
+        self._refresh_display()
+
+    def load_days(self) -> None:
+        today = datetime.now().date()
+        days = data_parser.history().days_with_tests()
+        if today not in days:
+            days = [today] + days
+        self._days = days
+        try:
+            self._index = self._days.index(today)
+        except ValueError:
+            self._index = 0
+        self._refresh_display()
+
+    @property
+    def current_day(self) -> date:
+        return self._days[self._index] if self._days else datetime.now().date()
+
+    def prev_day(self) -> None:
+        if self._days and self._index < len(self._days) - 1:
+            self._index += 1
+            self._refresh_display()
+            self.post_message(self.DayChanged())
+
+    def next_day(self) -> None:
+        if self._days and self._index > 0:
+            self._index -= 1
+            self._refresh_display()
+            self.post_message(self.DayChanged())
+
+    def _count_for_day(self, day: date) -> int:
+        return data_parser.history().count_for_day(day)
+
+    def _refresh_display(self) -> None:
+        day = self.current_day
+        count = self._count_for_day(day)
+        label = _day_label(day)
+        suffix = f"  ·  {count} test{'s' if count != 1 else ''}"
+        self.query_one("#nav-label", Static).update(label + suffix)
+
+
+class TestRecordItem(ListItem):
+    """
+    Single-line, borderless row for one typing test record.
+    """
+
+    COMPONENT_CLASSES: ClassVar[Set[str]] = {
+        "test-record-item--time",
+        "test-record-item--wpm",
+        "test-record-item--dim",
+        "test-record-item--pass",
+        "test-record-item--fail",
+    }
+
+    DEFAULT_CSS = """
+    TestRecordItem {
+        height: 1;
+        width: 1fr;
+        padding: 0 1;
+    }
+    """
+
+    def __init__(
+        self,
+        test: TestRecord,
+        rank: Literal["normal", "best", "highscore"] = "normal",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._test = test
+        self._is_best = rank != "normal"
+
+        if rank == "highscore":
+            self.add_class("highscore")
+        elif rank == "best":
+            self.add_class("best")
+        if test.failed:
+            self.add_class("failed")
+
+    def render(self) -> Text:
+        t = self._test
+        time_s = self.get_component_rich_style("test-record-item--time")
+        wpm_s = self.get_component_rich_style("test-record-item--wpm")
+        dim_s = self.get_component_rich_style("test-record-item--dim")
+        pass_s = self.get_component_rich_style("test-record-item--pass")
+        fail_s = self.get_component_rich_style("test-record-item--fail")
+
+        mode = t.mode
+        count = t.count
+        unit = "s" if mode == "time" else ""
+        lang = t.language
+
+        start = t.start_time
+        time_str = datetime.fromtimestamp(start).strftime("%H:%M") if start else "--:--"
+        # Reserve the same width whether the crown is shown or not, so the
+        # time column lines up across rows.
+        marker = f"{_CROWN_ICON}  " if self._is_best else "   "
+
+        result_str = "failed" if t.failed else "passed"
+        result_s = fail_s if t.failed else pass_s
+        num_s = pass_s if t.numbers else dim_s
+        punct_s = pass_s if t.punctuations else dim_s
+
+        sep = "   "
+        mode_icon = MODE_ICON.get(mode, "")
+        num_icon = _MODIFIER_ICON["numbers"]
+        punct_icon = _MODIFIER_ICON["punctuation"]
+        # Fixed width so "100%" doesn't push "passed"/"failed" out of line with "9%"/"85%".
+        accuracy_str = f"{t.accuracy:>3}%"
+        left_str = f"{marker}{time_str}{sep}{t.wpm} wpm{sep}{accuracy_str}{sep}{result_str}"
+        right_str = (
+            f"{mode_icon} {mode} · {count}{unit}{sep}{lang}"
+            f"{sep}{num_icon} numbers{sep}{punct_icon} punctuation"
+        )
+        gap = max(3, self.content_size.width - len(left_str) - len(right_str))
+
+        return (
+            Text(f"{marker}{time_str}{sep}", style=time_s)
+            + Text(f"{t.wpm} wpm", style=wpm_s)
+            + Text(f"{sep}{accuracy_str}{sep}", style=dim_s)
+            + Text(result_str, style=result_s)
+            + Text(" " * gap, style=dim_s)
+            + Text(f"{mode_icon} {mode} · {count}{unit}{sep}", style=dim_s)
+            + Text(lang, style=dim_s)
+            + Text(f"{sep}{num_icon} numbers", style=num_s)
+            + Text(f"{sep}{punct_icon} punctuation", style=punct_s)
+        )
+
+
+class TestRecordList(ListView, can_focus=False):
+    """
+    Scrollable list of TestRecordItem rows for a single day. Never focused -
+    cursor movement is driven explicitly by TestRecordViewerPane.handle_key.
+    """
+
+    DEFAULT_CSS = """
+    TestRecordList {
+        width: 80%;
+        max-width: 120;
+        height: auto;
+        max-height: 100%;
+        scrollbar-size: 0 1;
+        scrollbar-gutter: stable;
+    }
+    """
+
+    async def populate(self, day: date) -> None:
+        await self.clear()
+
+        history = data_parser.history()
+        day_tests = history.tests_for_day(day)
+        best_per_key = history.day_bests(day_tests)
+        all_time = history.bests_by_mode_count()
+
+        items: List[ListItem] = []
+        for t in day_tests:
+            key = (t.mode, t.count)
+            is_daily_best = not t.failed and t.wpm == best_per_key.get(key, 0)
+            best_record = all_time.get(key)
+            is_highscore = (
+                best_record is not None
+                and not t.failed
+                and t.start_time == best_record.start_time
+            )
+            if is_highscore:
+                rank = "highscore"
+            elif is_daily_best:
+                rank = "best"
+            else:
+                rank = "normal"
+            items.append(TestRecordItem(t, rank))
+
+        if items:
+            await self.extend(items)
+            self.index = 0
+        else:
+            await self.extend([ListItem(Label("no tests for this day", classes="no-data"))])
+
+
+class TestRecordViewerPane(CarouselPane):
+    """
+    Daily test record browser; lives beside HighscorePane inside a Carousel.
+    """
+
+    DEFAULT_CSS = """
+    TestRecordViewerPane {
+        layout: vertical;
+        padding: 0 2;
+        overflow-y: auto;
+        scrollbar-size: 1 1;
+    }
+
+    TestRecordViewerPane DayNavigator {
+        margin-bottom: 1;
+    }
+
+    TestRecordViewerPane #record-list-area {
+        height: 1fr;
+        align: center top;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        yield Carousel([HighscorePane()])
+        yield DayNavigator(id="day-navigator")
+        with Vertical(id="record-list-area"):
+            yield TestRecordList(id="test-record-list")
+
+    async def activate(self) -> None:
+        self.query_one(DayNavigator).load_days()
+        await self.refresh_records()
+
+    async def refresh_records(self) -> None:
+        day = self.query_one(DayNavigator).current_day
+        await self.query_one(TestRecordList).populate(day)
+
+    @on(DayNavigator.DayChanged)
+    async def _on_day_changed(self) -> None:
+        await self.refresh_records()
+
+    async def handle_key(self, event: events.Key) -> bool:
+        if event.key == "h":
+            event.stop()
+            self.query_one(DayNavigator).prev_day()
+        elif event.key == "l":
+            event.stop()
+            self.query_one(DayNavigator).next_day()
+        elif event.key == "j":
+            event.stop()
+            self.query_one(TestRecordList).action_cursor_down()
+        elif event.key == "k":
+            event.stop()
+            self.query_one(TestRecordList).action_cursor_up()
+        else:
+            return False
+        return True
+
+
+class HighscoreScreen(BaseWindow):
+    """
+    Screen hosting a Carousel that slides between the highscore overview
+    and the daily test-record browser.
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Carousel([HighscorePane(), TestRecordViewerPane()])
 
     async def handle_key(self, event: events.Key) -> bool:
         if await super().handle_key(event):

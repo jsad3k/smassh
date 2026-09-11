@@ -239,6 +239,10 @@ Star {
   link-style-hover: underline italic;
 }
 
+TestRecordViewerPane {
+  background: $bg-color;
+}
+
 CarouselPager {
   background: $bg-color;
   color: $sub-color;
@@ -300,3 +304,50 @@ BestCard.empty .stat-label {
 BestCard.empty Digits {
   color: $sub-color;
 }
+
+DayNavigator {
+  color: $sub-color;
+  background: $sub-alt-color;
+  border: round $main-color;
+}
+DayNavigator .nav-arrow { color: $main-color; }
+DayNavigator .nav-arrow:hover { color: $text-color; }
+DayNavigator .nav-center { color: $text-color; }
+
+TestRecordViewerPane #record-list-area {
+  background: $bg-color;
+}
+
+TestRecordList {
+  background: $bg-color;
+  scrollbar-background: $sub-alt-color;
+  scrollbar-background-hover: $sub-alt-color;
+  scrollbar-background-active: $sub-alt-color;
+  scrollbar-color: $sub-color;
+  scrollbar-color-active: $main-color;
+  scrollbar-color-hover: $main-color;
+}
+
+TestRecordItem {
+  background: $bg-color;
+}
+
+TestRecordList > TestRecordItem.-hovered {
+  background: $sub-alt-color;
+}
+
+TestRecordList > TestRecordItem.-highlight {
+  background: $sub-alt-color;
+}
+
+TestRecordItem > .test-record-item--time { color: $sub-color; }
+TestRecordItem > .test-record-item--wpm  { color: $text-color; }
+TestRecordItem > .test-record-item--dim  { color: $sub-color; }
+TestRecordItem > .test-record-item--pass { color: $main-color; }
+TestRecordItem > .test-record-item--fail { color: $error-color; }
+
+TestRecordItem.best > .test-record-item--time { color: $main-color; }
+TestRecordItem.highscore > .test-record-item--time { color: $text-color; }
+TestRecordItem.failed > .test-record-item--time { color: $error-color; }
+
+TestRecordList .no-data { color: $sub-color; background: $bg-color; padding: 1 2; }
